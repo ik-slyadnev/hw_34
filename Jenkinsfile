@@ -15,6 +15,8 @@ pipeline {
         stage('Prepare') {
             steps {
                 sh '''
+                    rm -rf allure-results || true
+                    rm -rf allure-report || true
                     mkdir -p allure-results
                     chmod -R 777 allure-results
                 '''
@@ -34,34 +36,19 @@ pipeline {
             }
         }
         
-        stage('Debug Allure Results') {
-            steps {
-                sh '''
-                    echo "Содержимое папки allure-results:"
-                    ls -la allure-results/
-                    echo "Количество файлов в allure-results:"
-                    find allure-results -type f | wc -l
-                '''
-            }
-        }
-        
         stage('Generate Allure Report') {
             steps {
                 script {
-                    // Добавим права доступа перед генерацией
-                    sh 'chmod -R 777 allure-results'
+                    // Проверяем содержимое директории
+                    sh 'ls -la allure-results/'
                     
                     allure([
+                        includeProperties: false,
+                        jdk: '',
+                        properties: [],
                         reportBuildPolicy: 'ALWAYS',
                         results: [[path: 'allure-results']],
-                        report: 'allure-report',
-                        enableProperties: true,
-                        properties: [
-                            [key: 'BUILD_NUMBER', value: "${BUILD_NUMBER}"],
-                            [key: 'JOB_NAME', value: "${JOB_NAME}"],
-                            [key: 'BUILD_URL', value: "${BUILD_URL}"]
-                        ],
-                        saveReportHistory: true
+                        report: 'allure-report'
                     ])
                 }
             }
@@ -70,6 +57,10 @@ pipeline {
     
     post {
         always {
+            script {
+                // Архивируем отчет как артефакт
+                archiveArtifacts artifacts: 'allure-report/**', allowEmptyArchive: true
+            }
             cleanWs()
         }
     }
