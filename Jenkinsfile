@@ -6,10 +6,6 @@ pipeline {
         ALLURE_REPORT = "${WORKSPACE}/allure-report"
     }
 
-    tools {
-        allure 'allure'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -53,38 +49,18 @@ pipeline {
                 }
             }
         }
-
-        stage('Generate Allure Report') {
-            steps {
-                script {
-                    sh '''
-                        echo "Allure results files:"
-                        ls -la ${WORKSPACE}/allure-results/
-                    '''
-                }
-                
-                allure([
-                    reportBuildPolicy: 'ALWAYS',
-                    results: [[path: "${WORKSPACE}/allure-results"]]
-                ])
-            }
-        }
     }
 
     post {
         always {
-            archiveArtifacts(
-                artifacts: 'allure-results/**/*,allure-report/**/*',
-                allowEmptyArchive: true
-            )
-        }
-        
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        
-        failure {
-            echo 'Pipeline failed!'
+            script {
+                allure([
+                    reportBuildPolicy: 'ALWAYS',
+                    results: [
+                        [path: 'allure-results']
+                    ]
+                ])
+            }
         }
     }
 }
