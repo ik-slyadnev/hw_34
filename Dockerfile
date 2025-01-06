@@ -54,4 +54,4 @@ RUN wget https://github.com/allure-framework/allure2/releases/download/2.25.0/al
 COPY . .
 
 # Проверяем наличие директории и прав перед запуском
-CMD ["sh", "-c", "ls -la /tests/allure-results && pytest -v --alluredir=/tests/allure-results"]
+CMD ["sh", "-c", "ls -la /tests/allure-results && pytest -sv --alluredir=/tests/allure-results"]
