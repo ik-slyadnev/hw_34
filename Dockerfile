@@ -31,7 +31,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /tests
 
-RUN mkdir -p allure-results && chmod 777 allure-results
+# Создаем директорию и устанавливаем права
+RUN mkdir -p /tests/allure-results && \
+    chmod -R 777 /tests/allure-results && \
+    chown -R root:root /tests
 
 COPY requirements.txt .
 
@@ -50,4 +53,5 @@ RUN wget https://github.com/allure-framework/allure2/releases/download/2.25.0/al
 
 COPY . .
 
-CMD ["pytest", "-v", "--alluredir=/tests/allure-results"]
+# Проверяем наличие директории и прав перед запуском
+CMD ["sh", "-c", "ls -la /tests/allure-results && pytest -v --alluredir=/tests/allure-results"]
