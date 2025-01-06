@@ -11,6 +11,7 @@ pipeline {
                 checkout scm
             }
         }
+        
         stage('Build and Run Tests') {
             steps {
                 script {
@@ -22,19 +23,31 @@ pipeline {
                 }
             }
         }
-stage('Generate Allure Report') {
-    steps {
-        script {
-            allure([
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'allure-results']],
-                report: [[path: 'allure-report']],
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                saveReportHistory: true
-            ])
+        
+        stage('Generate Allure Report') {
+            steps {
+                script {
+                    allure([
+                        reportBuildPolicy: 'ALWAYS',
+                        results: [[path: 'allure-results']],
+                        report: 'allure-report',
+                        enableProperties: true,
+                        jdk: '',
+                        properties: [
+                            [key: 'BUILD_NUMBER', value: "${BUILD_NUMBER}"],
+                            [key: 'JOB_NAME', value: "${JOB_NAME}"],
+                            [key: 'BUILD_URL', value: "${BUILD_URL}"]
+                        ],
+                        saveReportHistory: true
+                    ])
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
         }
     }
 }
