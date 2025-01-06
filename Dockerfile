@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Установка Java (необходим для Allure)
+# Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
     default-jdk \
     wget \
@@ -33,14 +33,14 @@ WORKDIR /tests
 
 COPY requirements.txt .
 
-# Установка зависимостей Python
+# Установка Python зависимостей
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Установка Playwright
 RUN playwright install chromium
 
-# Установка Allure CommandLine
+# Установка Allure
 RUN wget https://github.com/allure-framework/allure2/releases/download/2.25.0/allure-2.25.0.tgz && \
     tar -zxvf allure-2.25.0.tgz -C /opt/ && \
     ln -s /opt/allure-2.25.0/bin/allure /usr/local/bin/allure && \
@@ -48,5 +48,5 @@ RUN wget https://github.com/allure-framework/allure2/releases/download/2.25.0/al
 
 COPY . .
 
-# Изменим команду запуска для генерации Allure-отчетов
+# Изменяем команду запуска для генерации Allure-отчетов
 CMD ["pytest", "-v", "--alluredir=allure-results"]
