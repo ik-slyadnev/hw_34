@@ -5,6 +5,11 @@ pipeline {
         allure 'allure'
     }
     
+    environment {
+        ALLURE_RESULTS = "${WORKSPACE}/allure-results"
+        ALLURE_REPORT = "${WORKSPACE}/allure-report"
+    }
+    
     stages {
         stage('Checkout') {
             steps {
@@ -15,14 +20,19 @@ pipeline {
         stage('Prepare') {
             steps {
                 sh '''
-                    rm -rf allure-results || true
-                    rm -rf allure-report || true
-                    mkdir -p allure-results
-                    chmod -R 777 allure-results
+                    # Очистка с выводом информации
+                    echo "Cleaning up previous results..."
+                    rm -rf ${ALLURE_RESULTS} || true
+                    rm -rf ${ALLURE_REPORT} || true
                     
-                    # Проверяем создание директории
+                    # Создание директории
+                    echo "Creating allure-results directory..."
+                    mkdir -p ${ALLURE_RESULTS}
+                    chmod -R 777 ${ALLURE_RESULTS}
+                    
+                    # Проверка создания директории
                     echo "Created allure-results directory:"
-                    ls -la allure-results
+                    ls -la ${ALLURE_RESULTS}
                 '''
             }
         }
@@ -30,22 +40,36 @@ pipeline {
         stage('Build and Run Tests') {
             steps {
                 script {
-                    sh '''
-                        docker build -t playwright-tests .
-                        
-                        # Добавляем больше прав для монтирования и владельца
-                        docker run --rm \
-                            -v "${WORKSPACE}/allure-results:/tests/allure-results:rw" \
-                            --user root \
-                            playwright-tests
+                    try {
+                        sh '''
+                            # Сборка образа
+                            echo "Building Docker image..."
+                            docker build -t playwright-tests .
                             
-                        # Проверяем результаты после выполнения тестов
-                        echo "Contents of allure-results after tests:"
-                        ls -la allure-results/
-                        
-                        # Исправляем права на файлы после запуска Docker
-                        chmod -R 777 allure-results
-                    '''
+                            # Запуск тестов
+                            echo "Running tests..."
+                            docker run --rm \
+                                -v "${ALLURE_RESULTS}:/tests/allure-results:rw" \
+                                --user root \
+                                playwright-tests
+                            
+                            # Проверка результатов
+                            echo "Contents of allure-results after tests:"
+                            ls -la ${ALLURE_RESULTS}/
+                            
+                            # Подсчет количества JSON файлов
+                            echo "Number of JSON files in results:"
+                            find ${ALLURE_RESULTS} -name "*.json" | wc -l
+                            
+                            # Исправление прав
+                            echo "Fixing permissions..."
+                            chmod -R 777 ${ALLURE_RESULTS}
+                        '''
+                    } catch (Exception e) {
+                        echo "Error during test execution: ${e.message}"
+                        currentBuild.result = 'FAILURE'
+                        throw e
+                    }
                 }
             }
         }
@@ -53,23 +77,36 @@ pipeline {
         stage('Generate Allure Report') {
             steps {
                 script {
-                    // Проверяем содержимое директории
-                    sh '''
-                        echo "Contents before generating report:"
-                        ls -la allure-results/
+                    try {
+                        // Проверка наличия результатов
+                        sh '''
+                            echo "Contents before generating report:"
+                            ls -la ${ALLURE_RESULTS}/
+                            
+                            echo "Sample of JSON files (first 3):"
+                            find ${ALLURE_RESULTS} -name "*.json" -exec head -n 20 {} \\; | head -n 60 || true
+                        '''
                         
-                        # Показываем содержимое одного из JSON файлов для проверки
-                        cat allure-results/*.json || true
-                    '''
-                    
-                    allure([
-                        includeProperties: false,
-                        jdk: '',
-                        properties: [],
-                        reportBuildPolicy: 'ALWAYS',
-                        results: [[path: "${WORKSPACE}/allure-results"]],
-                        report: "${WORKSPACE}/allure-report"
-                    ])
+                        // Генерация отчета
+                        allure([
+                            includeProperties: false,
+                            jdk: '',
+                            properties: [],
+                            reportBuildPolicy: 'ALWAYS',
+                            results: [[path: "${ALLURE_RESULTS}"]],
+                            report: "${ALLURE_REPORT}"
+                        ])
+                        
+                        // Проверка генерации отчета
+                        sh '''
+                            echo "Generated report contents:"
+                            ls -la ${ALLURE_REPORT}/
+                        '''
+                    } catch (Exception e) {
+                        echo "Error generating Allure report: ${e.message}"
+                        currentBuild.result = 'UNSTABLE'
+                        throw e
+                    }
                 }
             }
         }
@@ -78,12 +115,39 @@ pipeline {
     post {
         always {
             script {
-                // Архивируем и результаты, и отчет
-                archiveArtifacts artifacts: 'allure-results/**/*', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'allure-report/**/*', allowEmptyArchive: true
+                // Архивация с проверкой
+                echo "Archiving artifacts..."
+                archiveArtifacts(
+                    artifacts: 'allure-results/**/*', 
+                    allowEmptyArchive: true,
+                    fingerprint: true
+                )
+                archiveArtifacts(
+                    artifacts: 'allure-report/**/*', 
+                    allowEmptyArchive: true,
+                    fingerprint: true
+                )
             }
-            // Перенесли cleanWs в конец
-            cleanWs()
+            
+            // Очистка рабочего пространства
+            cleanWs(
+                cleanWhenNotBuilt: false,
+                deleteDirs: true,
+                disableDeferredWipeout: true,
+                notFailBuild: true
+            )
+        }
+        
+        failure {
+            echo "Build failed! Check the logs for details."
+        }
+        
+        unstable {
+            echo "Build is unstable! Check the Allure report generation."
+        }
+        
+        success {
+            echo "Build succeeded! Allure report should be available."
         }
     }
 }
