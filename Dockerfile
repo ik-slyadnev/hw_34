@@ -31,6 +31,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /tests
 
+RUN mkdir -p allure-results && chmod 777 allure-results
+
 COPY requirements.txt .
 
 # Установка Python зависимостей
@@ -48,5 +50,4 @@ RUN wget https://github.com/allure-framework/allure2/releases/download/2.25.0/al
 
 COPY . .
 
-# Изменяем команду запуска для генерации Allure-отчетов
-CMD ["pytest", "-v", "--alluredir=allure-results"]
+CMD ["pytest", "-v", "--alluredir=/tests/allure-results"]
