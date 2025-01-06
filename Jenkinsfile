@@ -22,13 +22,19 @@ pipeline {
                 }
             }
         }
-        stage('Generate Allure Report') {
-            steps {
-                allure([
-                    reportBuildPolicy: 'ALWAYS',
-                    results: [[path: 'allure-results']]
-                ])
-            }
+stage('Generate Allure Report') {
+    steps {
+        script {
+            allure([
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'allure-results']],
+                report: [[path: 'allure-report']],
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                saveReportHistory: true
+            ])
         }
     }
 }
